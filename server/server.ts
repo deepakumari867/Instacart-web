@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "./config/firebase.js";
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import authRouter from "./routes/authRoutes.js";

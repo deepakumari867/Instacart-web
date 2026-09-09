@@ -3,6 +3,14 @@ import type { User } from "../types";
 import { useNavigate } from "react-router-dom";
 import api from "../config/api";
 import toast from "react-hot-toast";
+import { auth, googleProvider } from "../config/firebase";
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signInWithPopup, 
+    signOut, 
+    onAuthStateChanged 
+} from "firebase/auth";
 
 interface AuthContextType {
     user: User | null;
@@ -10,7 +18,8 @@ interface AuthContextType {
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
     register: (name: string, email: string, password: string) => Promise<void>;
-    logout: () => void;
+    loginWithGoogle: () => Promise<void>;
+    logout: () => Promise<void>;
     updateUser: (userData: Partial<User>) => void;
 }
 
@@ -22,51 +31,97 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const savedToken = localStorage.getItem("auth_token");
-        const savedUser = localStorage.getItem("auth_user");
-
-        if (savedToken && savedUser) {
-            setToken(savedToken);
-            setUser(JSON.parse(savedUser));
+    // Sync user with backend
+    const syncWithBackend = async (firebaseToken: string) => {
+        try {
+            const { data } = await api.post("/auth/sync", {}, {
+                headers: {
+                    Authorization: `Bearer ${firebaseToken}`
+                }
+            });
+            setUser(data.user);
+            setToken(firebaseToken);
+            localStorage.setItem("auth_token", firebaseToken);
+            localStorage.setItem("auth_user", JSON.stringify(data.user));
+            return data.user;
+        } catch (error) {
+            console.error("Failed to sync user with backend:", error);
+            throw error;
         }
+    };
 
-        setLoading(false);
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                try {
+                    const firebaseToken = await firebaseUser.getIdToken();
+                    await syncWithBackend(firebaseToken);
+                } catch (error) {
+                    // Handle sync failure (e.g., clear state)
+                    setUser(null);
+                    setToken(null);
+                    localStorage.removeItem("auth_token");
+                    localStorage.removeItem("auth_user");
+                }
+            } else {
+                setUser(null);
+                setToken(null);
+                localStorage.removeItem("auth_token");
+                localStorage.removeItem("auth_user");
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const login = async (email: string, password: string) => {
         try {
-            const { data } = await api.post("/auth/login", { email, password });
-            setUser(data.user);
-            setToken(data.token);
-            localStorage.setItem("auth_token", data.token);
-            localStorage.setItem("auth_user", JSON.stringify(data.user));
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const firebaseToken = await userCredential.user.getIdToken();
+            await syncWithBackend(firebaseToken);
             toast.success("Login successful");
             navigate("/");
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || error?.message);
+            toast.error(error?.message || "Failed to login");
         }
     };
 
     const register = async (name: string, email: string, password: string) => {
         try {
-            const { data } = await api.post("/auth/register", { name, email, password });
-            setUser(data.user);
-            setToken(data.token);
-            localStorage.setItem("auth_token", data.token);
-            localStorage.setItem("auth_user", JSON.stringify(data.user));
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const firebaseToken = await userCredential.user.getIdToken();
+            await syncWithBackend(firebaseToken);
             toast.success("Registration successful");
             navigate("/");
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || error?.message);
+            toast.error(error?.message || "Failed to register");
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("auth_user");
+    const loginWithGoogle = async () => {
+        try {
+            const userCredential = await signInWithPopup(auth, googleProvider);
+            const firebaseToken = await userCredential.user.getIdToken();
+            await syncWithBackend(firebaseToken);
+            toast.success("Login successful");
+            navigate("/");
+        } catch (error: any) {
+            toast.error(error?.message || "Failed to login with Google");
+        }
+    }
+
+    const logout = async () => {
+        try {
+            await signOut(auth);
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("auth_user");
+            navigate("/login");
+        } catch (error: any) {
+            toast.error("Failed to logout");
+        }
     };
 
     const updateUser = (userData: Partial<User>) => {
@@ -85,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 loading,
                 login,
                 register,
+                loginWithGoogle,
                 logout,
                 updateUser,
             }}

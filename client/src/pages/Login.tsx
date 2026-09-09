@@ -12,9 +12,9 @@ const Login = () => {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const { login, register } = useAuth();
+    const { login, register, loginWithGoogle } = useAuth();
 
-    const handleSubmit = async (e: React.SubmitEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
@@ -24,7 +24,18 @@ const Login = () => {
                 await register(name, email, password);
             }
         } catch (error: any) {
-            toast.error(error.response?.data?.message || error?.message);
+            toast.error(error.response?.data?.message || error?.message || "An error occurred");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        setLoading(true);
+        try {
+            await loginWithGoogle();
+        } catch (error: any) {
+            toast.error(error.message || "Google sign-in failed");
         } finally {
             setLoading(false);
         }
@@ -41,7 +52,7 @@ const Login = () => {
                 </div>
             </div>
 
-            {/* LRight Side */}
+            {/* Right Side */}
             <div className="flex-1 flex-center px-4 py-12 bg-app-cream">
                 <div className="w-full max-w-md">
                     {/* form header message */}
@@ -89,6 +100,22 @@ const Login = () => {
                             {loading ? <Loader2Icon className="animate-spin" /> : isLoginState ? "Sign In" : "Sign Up"}
                         </button>
                     </form>
+
+                    <div className="mt-6 flex items-center justify-between">
+                        <span className="border-b w-1/5 lg:w-1/4"></span>
+                        <span className="text-xs text-center text-gray-500 uppercase">or sign in with</span>
+                        <span className="border-b w-1/5 lg:w-1/4"></span>
+                    </div>
+
+                    <button 
+                        type="button" 
+                        onClick={handleGoogleSignIn}
+                        disabled={loading}
+                        className="mt-4 flex items-center justify-center w-full py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-5 w-5 mr-2" />
+                        <span className="text-sm font-medium text-gray-700">Google</span>
+                    </button>
                 </div>
             </div>
         </div>

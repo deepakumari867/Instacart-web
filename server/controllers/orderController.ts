@@ -110,7 +110,6 @@ export const getUserOrders = async (req: Request, res: Response) => {
 
     const where: any = {
         userId: req.user!.id,
-        NOT: [{ paymentMethod: "card", isPaid: false }],
     };
 
     if (status && status !== "all") {

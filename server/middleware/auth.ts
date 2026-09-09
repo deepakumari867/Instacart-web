@@ -1,7 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { getAuth } from "firebase-admin/auth";
+import { prisma } from "../config/prisma.js";
 
-const auth = (req: Request, res: Response, next: NextFunction) => {
+const auth = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const authHeader = req.headers.authorization;
 
@@ -10,12 +11,24 @@ const auth = (req: Request, res: Response, next: NextFunction) => {
         }
 
         const token = authHeader.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+        
+        // Verify Firebase token
+        const decodedToken = await getAuth().verifyIdToken(token);
 
-        req.user = { id: decoded.id };
+        // Fetch the real user from the database
+        const user = await prisma.user.findUnique({
+            where: { firebaseUid: decodedToken.uid }
+        });
+
+        if (!user) {
+            return res.status(401).json({ message: "User not found in database" });
+        }
+
+        // We set req.user to the real database user id
+        req.user = { id: user.id };
         next();
     } catch (error) {
-        console.log(error);
+        console.log("Firebase Auth Error:", error);
         return res.status(401).json({ message: "Token is not valid" });
     }
 };

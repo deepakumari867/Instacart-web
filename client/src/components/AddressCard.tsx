@@ -15,8 +15,6 @@ const AddressCard = ({ addr, onEditHandler, setAddresses }: AddressCardProps) =>
 
     const handleDelete = async (id: string) => {
         try {
-            const confirm = window.confirm("Are you sure you want to delete this address?");
-            if (!confirm) return;
             const { data } = await api.delete(`/addresses/${id}`);
             setAddresses(data.addresses);
             updateUser({ addresses: data.addresses });
