@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const register = async (name: string, email: string, password: string) => {
+const register = async (_name: string, email: string, password: string) => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const firebaseToken = await userCredential.user.getIdToken();
