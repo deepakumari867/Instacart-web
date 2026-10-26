@@ -63,8 +63,8 @@ export const syncUser = async (req: Request, res: Response) => {
         userData.isAdmin = getAdminStatus(userData.email);
 
         res.json({ user: userData });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Sync User Error:", error);
-        res.status(500).json({ message: "Server Error syncing user" });
+        res.status(500).json({ message: error?.message || "Server Error syncing user" });
     }
 };
