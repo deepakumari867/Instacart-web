@@ -14,6 +14,7 @@ const Products = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
     const category = searchParams.get("category") || "";
@@ -25,21 +26,24 @@ const Products = () => {
 
     const fetchProducts = async () => {
         setLoading(true);
+        setError(null);
         try {
             const params = new URLSearchParams();
             if (category) params.set("category", category);
             if (organic) params.set("organic", organic);
             if (sort) params.set("sort", sort);
-            if (sort) params.set("sort", sort);
             if (maxPrice) params.set("maxPrice", maxPrice);
+            if (minPrice) params.set("minPrice", minPrice);
             params.set("page", String(page));
             params.set("limit", "12");
 
             const { data } = await api.get(`/products?${params.toString()}`);
             setProducts(data.products);
-            setTotalPages(data.pages);
+            setTotalPages(data.pagination?.totalPages || 1);
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || error?.message);
+            const errorMessage = error?.response?.data?.message || error?.message;
+            setError(errorMessage);
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -106,8 +110,8 @@ const Products = () => {
                                 <div className="relative">
                                     <select value={sort} onChange={(e) => updateFilter("sort", e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm bg-white rounded-xl border border-app-border focus:border-app-green outline-none cursor-pointer">
                                         <option value="">Newest</option>
-                                        <option value="price_asc">Price: Low → High</option>
-                                        <option value="price_desc">Price: High → Low</option>
+                                        <option value="price-low">Price: Low → High</option>
+                                        <option value="price-high">Price: High → Low</option>
                                         <option value="rating">Top Rated</option>
                                         <option value="name">A → Z</option>
                                     </select>
@@ -119,6 +123,14 @@ const Products = () => {
                         {/* Product Grid */}
                         {loading ? (
                             <Loading />
+                        ) : error ? (
+                            <div className="text-center py-16">
+                                <p className="text-lg font-semibold text-red-500 mb-2">Error loading products</p>
+                                <p className="text-sm text-app-text-light mb-4">{error}</p>
+                                <button onClick={fetchProducts} className="px-5 py-2 text-sm font-medium bg-app-green text-white rounded-xl hover:bg-app-green-light transition-colors">
+                                    Retry
+                                </button>
+                            </div>
                         ) : products.length === 0 ? (
                             <div className="text-center py-16">
                                 <p className="text-lg font-semibold text-app-green mb-2">No products found</p>

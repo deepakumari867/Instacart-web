@@ -18,7 +18,7 @@ export const getFlashDeals = async (req: Request, res: Response) => {
 
 // GET /api/products
 export const getProducts = async (req: Request, res: Response) => {
-    const { category, search, minPrice, maxPrice, sort } = req.query;
+    const { category, search, minPrice, maxPrice, sort, page = "1", limit = "10" } = req.query;
 
     const where: any = {};
     if (category && category !== "all") where.category = category as string;
@@ -34,14 +34,29 @@ export const getProducts = async (req: Request, res: Response) => {
     else if (sort === "price-high") orderBy.price = "desc";
     else orderBy.createdAt = "desc";
 
-    const products = await prisma.product.findMany({ where, orderBy });
+    const pageNumber = Number(page) > 0 ? Number(page) : 1;
+    const pageSize = Number(limit) > 0 ? Number(limit) : 10;
+    const skip = (pageNumber - 1) * pageSize;
+
+    const [products, totalCount] = await Promise.all([
+        prisma.product.findMany({ where, orderBy, skip, take: pageSize }),
+        prisma.product.count({ where }),
+    ]);
 
     const productsWithDiscount = products.map((p: any) => {
         const discount = p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
         return { ...p, discount };
     });
 
-    res.json({ products: productsWithDiscount });
+    res.json({ 
+        products: productsWithDiscount,
+        pagination: {
+            totalItems: totalCount,
+            totalPages: Math.ceil(totalCount / pageSize),
+            currentPage: pageNumber,
+            pageSize,
+        }
+    });
 };
 
 // GET /api/products/:id
